@@ -1,9 +1,11 @@
-import pygame
+import pygame,os
 import random
 import button
+from pygame import mixer
 
 pygame.init()
-
+mixer.init()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 clock = pygame.time.Clock()
 fps = 60
 
@@ -14,7 +16,16 @@ screen_height = 400 + bottom_panel
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Battle')
+#Load music and sounds with dynamic paths
+mixer.music.load(os.path.join(BASE_DIR, "stranger-things-124008.mp3"))
+mixer.music.set_volume(0.5)
+mixer.music.play(-1, 0.0, 5000)
 
+sword_fx = mixer.Sound(os.path.join(BASE_DIR, "sword.wav"))
+sword_fx.set_volume(0.5)
+
+magic_fx = mixer.Sound(os.path.join(BASE_DIR, "magic.wav"))
+magic_fx.set_volume(0.75)
 
 #define game variables
 current_fighter = 1
@@ -232,7 +243,7 @@ class DamageText(pygame.sprite.Sprite):
 damage_text_group = pygame.sprite.Group()
 
 
-knight = Fighter(200, 260, 'Knight', 3, 10, 3)
+knight = Fighter(200, 260, 'Knight', 10, 10, 3)
 bandit1 = Fighter(550, 270, 'Bandit', 2, 6, 1)
 bandit2 = Fighter(700, 270, 'Bandit', 2, 6, 1)
 
