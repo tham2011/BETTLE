@@ -1,5 +1,4 @@
 import pygame
-import os
 import random
 from pygame import mixer
 
@@ -80,17 +79,14 @@ class Fighter():
         self.strength = strength
         self.potions = potions
         self.alive = True
-        self.vel_x =0
-        self.vel_y =0
+        self.vel_x = 0
+        self.speed = 1
+        self.vel_y = 0
         self.animation_list = []
         self.frame_index = 0
         self.action = 0  # 0:idle, 1:attack, 2:hurt, 3:dead
         self.update_time = pygame.time.get_ticks()
-        self.exp =0
-        self.lever =1
-        self.exp_to_lever_up =100
-        self.skill_points =0
-        self.skilla = {'attack':1 , 'special':1}
+
         # Load các hình ảnh idle
         temp_list = []
         for i in range(8):
@@ -127,22 +123,6 @@ class Fighter():
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
 
-    def upgrade_skill(self, skill_name):
-        if skill_name in self.skills:
-            self.skills[skill_name] +=1
-            print(f'kỹ năng {skill_name} đã được lên cấp {self.skills[skill_name]}!')
-
-    def gain_exp(self, amount):
-       
-        self.exp+= amount
-        print(f'đã nhận được {amount} EXP.')
-    
-    def level_up(self):
-        self.exp -= self.exp_to_level_up
-        self.level += 1
-        self.skill_points += 1
-        print(f'Bạn đã được lên cấp {self.level}')
-
     def update(self):
         animation_cooldown = 100
         self.image = self.animation_list[self.action][self.frame_index]
@@ -156,15 +136,24 @@ class Fighter():
                 self.idle()
 
         self.rect.x += self.vel_x
-        
 
     def idle(self):
         self.action = 0
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
-        #khoảng cách nhân vật
+
+
+    def move_towards_target(self, target, distance):
+        # Di chuyển về phía mục tiêu (hiệp sĩ)
+        if self.rect.centerx < target.rect.centerx - distance:
+            self.vel_x = 1  # Tốc độ di chuyển của kẻ địch
+        elif self.rect.centerx > target.rect.centerx + distance:
+            self.vel_x = -1
+        else:
+            self.vel_x = 0  # Dừng lại khi ở khoảng cách nhất định
+
     def attack(self, target):
-        if abs (self.rect.centerx - target.rect.centerx) <=50:
+        if abs(self.rect.centerx - target.rect.centerx) <= 50:
             rand = random.randint(-5, 5)
             damage = self.strength + rand
             target.hp -= damage
@@ -180,13 +169,9 @@ class Fighter():
             self.update_time = pygame.time.get_ticks()
             sword_fx.play()
 
-            if not target.alive:
-                self.gain_exp(50) #nhập 50 xp khi tiêu diệt kẻ địch 
-            else: 
-                print(f"quá xa để tấn công {target.name}")
+    
 
     def special_attack(self, target):
-        skill_level = self.skilla['special']
         damage = self.strength * 2 + random.randint(-3, 3)
         target.hp -= damage
         target.hurt()
@@ -200,9 +185,6 @@ class Fighter():
         self.update_time = pygame.time.get_ticks()
         magic_fx.play()
 
-        if not target.alive:
-            self.gain_exp(50)
-   
     def hurt(self):
         self.action = 2
         self.frame_index = 0
@@ -215,7 +197,7 @@ class Fighter():
 
     def draw(self):
         screen.blit(self.image, self.rect)
-    
+
 # Lớp thanh máu
 class HealthBar():
     def __init__(self, x, y, hp, max_hp):
@@ -248,16 +230,20 @@ class DamageText(pygame.sprite.Sprite):
 # Nhóm văn bản sát thương
 damage_text_group = pygame.sprite.Group()
 
+# Tạo kẻ địch
+def create_bandits():
+    bandit1 = Fighter(550, 270, 'Bandit', 30, 6, 1)
+    bandit2 = Fighter(700, 270, 'Bandit', 30, 6, 1)
+    return [bandit1, bandit2]
+
 # Chiến binh và kẻ địch
 knight = Fighter(200, 260, 'Knight', 50, 10, 3)
-bandit1 = Fighter(550, 270, 'Bandit', 30, 6, 1)
-bandit2 = Fighter(700, 270, 'Bandit', 30, 6, 1)
-bandit_list = [bandit1, bandit2]
+bandit_list = create_bandits()
 
 # Thanh máu
 knight_health_bar = HealthBar(100, screen_height - bottom_panel + 40, knight.hp, knight.max_hp)
-bandit1_health_bar = HealthBar(550, screen_height - bottom_panel + 40, bandit1.hp, bandit1.max_hp)
-bandit2_health_bar = HealthBar(550, screen_height - bottom_panel + 100, bandit2.hp, bandit2.max_hp)
+bandit1_health_bar = HealthBar(550, screen_height - bottom_panel + 40, bandit_list[0].hp, bandit_list[0].max_hp)
+bandit2_health_bar = HealthBar(550, screen_height - bottom_panel + 100, bandit_list[1].hp, bandit_list[1].max_hp)
 
 # Lớp Button (Nút)
 class Button():
@@ -273,51 +259,47 @@ class Button():
         action = False
         pos = pygame.mouse.get_pos()
         if self.rect.collidepoint(pos):
-            if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+            if pygame.mouse.get_pressed()[0] == 1 and not self.clicked:
                 action = True
                 self.clicked = True
         if pygame.mouse.get_pressed()[0] == 0:
             self.clicked = False
         screen.blit(self.image, (self.rect.x, self.rect.y))
         return action
-    def create_bandits():
-        bandit1 = Fighter(550, 270, 'Bandit', 30, 6, 1)
-        bandit2 = Fighter(700, 270, 'Bandit', 30, 6, 1)
-        return [bandit1, bandit2]
-
-# Khởi tạo kẻ địch
-    bandit_list = create_bandits()
 
 # Tạo các nút
 potion_button = Button(100, screen_height - bottom_panel + 70, potion_img, 1)
 attack_button = Button(200, screen_height - bottom_panel + 70, sword_img, 1.5)
 special_skill_button = Button(300, screen_height - bottom_panel + 60, special_skill_img, 0.75)
-restart_button = Button (300,150,  restart_img,0.5)
+restart_button = Button(300, 150, restart_img, 0.5)
 
+# Đặt lại game
 def reset_game():
-    global current_fighter, action_cooldown, game_over
+    global current_fighter, action_cooldown, game_over, knight_health_bar, bandit1_health_bar, bandit2_health_bar, bandit_list
     knight.hp = knight.max_hp
     knight.alive = True
+    knight.rect.center = (200, 260)
+    knight.vel_x = 0
+    bandit_list = create_bandits()
 
-    for bandit in bandit_list:
-        bandit.hp = bandit.max_hp
-        bandit.alive = True
+    knight_health_bar = HealthBar(100, screen_height - bottom_panel + 40, knight.hp, knight.max_hp)
+    bandit1_health_bar = HealthBar(550, screen_height - bottom_panel + 40, bandit_list[0].hp, bandit_list[0].max_hp)
+    bandit2_health_bar = HealthBar(550, screen_height - bottom_panel + 100, bandit_list[1].hp, bandit_list[1].max_hp)
 
     current_fighter = 1
     action_cooldown = 0
     game_over = 0
 
-    
 # Game loop
 run = True
-
 while run:
     clock.tick(fps)
     draw_bg()
     draw_panel()
+
     knight_health_bar.draw(knight.hp)
-    bandit1_health_bar.draw(bandit1.hp)
-    bandit2_health_bar.draw(bandit2.hp)
+    bandit1_health_bar.draw(bandit_list[0].hp)
+    bandit2_health_bar.draw(bandit_list[1].hp)
 
     knight.update()
     knight.draw()
@@ -334,110 +316,100 @@ while run:
     special_skill = False
     target = None
 
-
-    #banf phím di chuuyeenr nhân vật 
+    # Di chuyển hiệp sĩ
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT]:
-        knight.vel_x =-5
+        knight.vel_x = -5
     elif keys[pygame.K_RIGHT]:
-        knight.vel_x =5
+        knight.vel_x = 5
     else:
-        knight.vel_x =0
+        knight.vel_x = 0
 
-    if knight.rect.left + knight.vel_x > 0 and knight.rect.right + knight.vel_x <screen_width:
-            knight.rect.x += knight.vel_x
+    if knight.rect.left + knight.vel_x > 0 and knight.rect.right + knight.vel_x < screen_width:
+        knight.rect.x += knight.vel_x
 
-    # Kiểm tra người chơi nhấn nút nào
+    # Kiểm tra các nút bấm
     if attack_button.draw():
         attack = True
-        target = bandit1 if bandit1.alive else (bandit2 if bandit2.alive else None)
-    # di chuyển đến mục tiêu
-    if target and abs(knight.rect.centerx - target.rect.centerx) < 100:
-        if knight.rect.centerx < target.rect.centerx:
-            knight.vel_x =5
-        elif knight.rect.centerx > target.rect.centerx:
-            knight.vel_x =-5
-    else:
-        knight.vel_x =0
-# đủ gần để tấn công 
-    if attack and target and abs (knight.rect.centerx - target.rect.centerx) > 100:
-        knight.attack(target)
-        current_fighter += 1
-        action_cooldown =0
+        target = bandit_list[0] if bandit_list[0].alive else bandit_list[1] if bandit_list[1].alive else None
 
     if potion_button.draw():
         potion = True
 
     if special_skill_button.draw():
         special_skill = True
-        target = bandit1 if bandit1.alive else bandit2
+        target = bandit_list[0] if bandit_list[0].alive else bandit_list[1]
+# kẻ địch di chuyển đến mục tiêu 
+    for bandit in bandit_list:
+        if bandit.alive:
+            bandit.move_towards_target(knight, 50)
+
+
+    # Di chuyển đến mục tiêu
+    if target and abs(knight.rect.centerx - target.rect.centerx) < 100:
+        if knight.rect.centerx < target.rect.centerx:
+            knight.vel_x = 5
+        elif knight.rect.centerx > target.rect.centerx:
+            knight.vel_x = -5
+    else:
+        knight.vel_x = 0
+
+    # Kiểm tra tấn công
+    if attack and target and abs(knight.rect.centerx - target.rect.centerx) <= 50:
+        knight.attack(target)
+        current_fighter += 1
+        action_cooldown = 0
+
+    # Kiểm tra potion và kỹ năng đặc biệt
+    if potion and knight.potions > 0:
+        knight.hp += potion_effect
+        if knight.hp > knight.max_hp:
+            knight.hp = knight.max_hp
+        knight.potions -= 1
+        current_fighter += 1
+        action_cooldown = 0
+
+    if special_skill and target:
+        knight.special_attack(target)
+        current_fighter += 1
+        action_cooldown = 0
 
     # Logic chiến đấu
     if game_over == 0:
-        if knight.alive:
-            if current_fighter == 1:
+        if knight.alive and current_fighter == 1:
+            action_cooldown += 1
+            if action_cooldown >= action_wait_time:
+                current_fighter += 1
+
+        for count, bandit in enumerate(bandit_list):
+            if current_fighter == 2 + count and bandit.alive:
                 action_cooldown += 1
                 if action_cooldown >= action_wait_time:
-                    if attack and target:
-                        knight.attack(target)
-                        current_fighter += 1
-                        action_cooldown = 0
-                    elif potion:
-                        if knight.potions > 0:
-                            knight.hp += potion_effect
-                            if knight.hp > knight.max_hp:
-                                knight.hp = knight.max_hp
-                            knight.potions -= 1
-                            current_fighter += 1
-                            action_cooldown = 0
-                    elif special_skill and target:
-                        knight.special_attack(target)
-                        current_fighter += 1
-                        action_cooldown = 0
-# kẻ địch tấn công 
-        for count, bandit in enumerate(bandit_list):
-            if current_fighter == 2 + count:
-                if bandit.alive:
-                    action_cooldown += 1
-                    if action_cooldown >= action_wait_time:
-                        bandit.attack(knight)
-                        current_fighter += 1
-                        action_cooldown = 0
-                else:
+                    bandit.attack(knight)
                     current_fighter += 1
+                    action_cooldown = 0
 
         if current_fighter > total_fighters:
             current_fighter = 1
 
-    # Kiểm tra nếu tất cả kẻ địch đã chết thắng 
-    alive_bandits = 0
-    for bandit in bandit_list:
-        if bandit.alive:
-            alive_bandits += 1
+    # Kiểm tra nếu tất cả kẻ địch đã chết (thắng)
+    alive_bandits = sum(bandit.alive for bandit in bandit_list)
     if alive_bandits == 0:
         game_over = 1
-        # ktr nhân vật chết thua
-    if  not knight.alive:
-        game_over = -1 
-# hàm hiển thị màn hình thắng hoặc thua 
+    if not knight.alive:
+        game_over = -1
+
+    # Kiểm tra kết thúc game và nút restart
     if game_over != 0:
         if game_over == 1:
-            screen.blit(victory_img, (250, 50)) # thắng 
+            screen.blit(victory_img, (250, 50))
         if game_over == -1:
-            screen.blit(defeat_img, (290, 50)) #thua cuộc 
-            # nút restart để chơi lại
+            screen.blit(defeat_img, (290, 50))
+
         if restart_button.draw():
-            knight.hp = knight.max_hp # đặt lại nhân vật
-            knight.alive = True
-            # đặt lại kẻ địch
-            for bandit in bandit_list:
-                bandit.hp = bandit.max_hp
-                bandit.alive = True
+            reset_game()
 
-            current_fighter = 1
-            action_cooldown = 0
-            game_over = 0
-
+    # Xử lý sự kiện
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
